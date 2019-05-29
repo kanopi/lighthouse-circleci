@@ -1,0 +1,62 @@
+version: 2
+jobs:
+  # Perf tests
+  perfTestsURL1:
+    # Number of parallel Lighthouse runs against this url. Why more than one?
+    # Some perf metrics vary across runs based on backend flakiness, etc, and 
+    # this way we can extract a best score or median across runs.
+    parallelism: 3
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      - run:
+          name: Run lighthouse tests
+          # Load the url to test from the JSON file.
+          command: |
+            TEST_URL="$(node -p 'require("./lighthouse.json").url')"
+            lighthouse $TEST_URL \
+              --port=9222 \
+              --chrome-flags=\"--headless\" \
+              --emulated-form-factor=mobile \
+              --output-path=/opt/reports/anonymous-"$(echo -n $CIRCLE_SHELL_ENV | md5sum | awk '{print $1}')" \
+              --output=json \
+              --output=html
+      # Save the reports just generated in a place where the _next job_ in the
+      # workflow can snag them all and do analysis on them. 
+      - persist_to_workspace:
+          root: /opt
+          paths:
+            - reports
+
+  # Analyze all the reports for URL1
+  processResultsURL1:
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      # Mount the workspace (which contains all our reports) into this
+      # container. The reports are subsequently available at ./reports/
+      - attach_workspace:
+          at: "."
+      # Store the html and json reports in S3 as long-term artifacts associated
+      # with this job. Then, we can easily send links to the html reports in the
+      # PR comment.
+      - store_artifacts:
+          path: reports
+          destination: reports
+      # Run the script to parse the scores.
+      - run:
+          shell: /bin/sh
+          name: Analyze scores for the tests
+          command: |
+            /opt/ci-scripts/analyze_scores.js lighthouse.json reports
+
+workflows:
+  version: 2
+  lighthouseBenchmark:
+    jobs:
+      - perfTestsURL1
+      - processResultsURL1:
+          requires:
+            - perfTestsURL1

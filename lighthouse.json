@@ -1,0 +1,9 @@
+{
+  "url" : "https://jimbir.ch/",
+  "requiredScores": {
+    "performance": 90,
+    "accessibility": 90,
+    "best-practices": 90,
+    "seo": 90
+  }
+}
