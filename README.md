@@ -31,7 +31,7 @@ Another thanks goes out to [Sean Dietrich](https://github.com/sean-e-dietrich) f
 
 ## How it works
 
-If you look at the [config.yml](.circleci/config.yml) in this repo you'll see it's essentially broken down in to two jobs.  The first runs the Lighthouse tests against a URL and then second analyses the results.  The lighthouse job is separate so we can run it multiple times(`parallelism: 3`) and average the difference.
+If you look at the [config.yml](.circleci/config.yml) in this repo you'll see it's essentially broken down in to two jobs.  The first runs the Lighthouse tests against a URL and the second analyses the results.  The lighthouse job is separate so we can run it multiple times(`parallelism: N`) and average the difference.
 
 The second major part of this is the Docker image (`kanopi/ci:edge-lighthouse`).  This is the custom image we've built that has Lighthouse and the analyzer script baked in to it so this process is lightweight on the individual project side.
 
