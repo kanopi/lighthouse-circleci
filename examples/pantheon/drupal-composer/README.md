@@ -18,6 +18,6 @@ Commit and create a PR.  See your new tests in action. :rocket:
 
 **If you have made changes:**
 
-If you have made changes to your `config.yml` you'll need to fit in tests to your flow as appropriate.
+If you have made changes to your `config.yml` you'll need to fit in the Lighthouse tests to your flow as appropriate.
 
 Look at the `config.yml` in this folder for [how to get the multidev URL](/examples/pantheon/drupal-composer/config.yml#135) and then use it in later steps. 
