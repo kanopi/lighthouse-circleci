@@ -8,10 +8,7 @@ A pull request will get tested with Lighthouse with configurable per test limits
 * Best Practices
 * SEO
 
-The results of each test will be stored in the PR for later review if needed.
-
-A test will look like this in your PR
-
+The results of each test will be stored in the PR for later review if needed. A test will look like this in your PR:
 ![Lighthouse test github comment](/docs/github-comment.png)
 
 **Thanks**
