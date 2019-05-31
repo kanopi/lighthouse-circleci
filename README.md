@@ -58,14 +58,14 @@ There are a few extra things we'll need to update compared to the simple example
 2. Updating the config to pass a base url to the lighthouse testing script
     * In the job(s) preceding the test you need to get a base url specific to your environment/project and [save it to a file](https://github.com/kanopi/lighthouse-circleci/blob/c6f6aaca986cbeae70834488a41788a41d684f93/.circleci/config.yml#L62) 
 3. Getting the base url in to the Lighthouse test
-    * We load the file from the other test can [get the URL in to a variable](.circleci/config.yml#L90) that we can concat with the relative URL from the JSON file.
+    * We load the file from the other test and [get the URL in to a variable](.circleci/config.yml#L90) that we can concat with the relative URL from the JSON file.
 4. Setting an environment URL for the analyzing script so the links in github comments work correctly
-    * The analyzer script is configured to look for an environment variable called `LIGHTHOUSE_BASE_URL` and when that exists will prepend that to the testing URL for notifications in github.
+    * The analyzer script is configured to look for an environment variable called `LIGHTHOUSE_BASE_URL` and when that exists it will prepend that to the testing URL for notifications in github.
     * Load the URL file again but [export the URL to the bash environment](.circleci/config.yml#L128) so the analyzer script can use it.
     
 ## Examples
 
-The `config.yml` in the `.circleci` folder is a good example.  We have folder of platform specific setups as well that we will be adding too over time.
+We have folder of platform specific setups as well that we will be adding too over time.
 
 * [Pantheon composer builds](examples/pantheon/drupal-composer/README.md)
 
@@ -75,7 +75,7 @@ The `config.yml` in the `.circleci` folder is a good example.  We have folder of
 
 In the original example from Stuart Sandine he'd gotten some authenticated tests working. Because the analyzer script with written to deal specifically with that use case for his demo app it didn't really make sense to include at this time.  
 
-I'd like to add a way to authenticate against Wordpress and Drupal sites simply as those are the primary CMS's we develop in.
+I'd like to add a way to authenticate against Wordpress and Drupal sites simply as those are the primary CMS's we develop in at Kanopi.
 
 **Smaller Docker Image**
 
