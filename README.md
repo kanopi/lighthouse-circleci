@@ -26,7 +26,7 @@ Another thanks goes out to [Sean Dietrich](https://github.com/sean-e-dietrich) f
 
 ## How it works
 
-If you look at the [config.yml](.circleci/config.yml) in this repo you'll see it's essentially broken down in to two jobs.  The first runs the Lighthouse tests against a URL and then second analyses the results.  The lighthouse job is separate so we can run it multiple times and average the difference.
+If you look at the [config.yml](.circleci/config.yml) in this repo you'll see it's essentially broken down in to two jobs.  The first runs the Lighthouse tests against a URL and then second analyses the results.  The lighthouse job is separate so we can run it multiple times(`parallelism: 3`) and average the difference.
 
 The second major part of this is the Docker image (`kanopi/ci:edge-lighthouse`).  This is the custom image we've built that has Lighthouse and the analyzer script baked in to it so this process is lightweight on the individual project side.
 
@@ -43,16 +43,16 @@ This will get you testing a specific URL on every PR.
 
 ### Relative URLs
 
-In more complicated development flows you'll want to test against specific environments so you can't hard code an absolute URL in the json file.
+In more complicated development flows you'll want to test against specific environments so you can't hard code an absolute URL in the json file. You can look at the `baseUrl`, `relativeTests` and `processResultsRelativeTests` jobs in the [config.yml](.circleci/config.yml) for examples.
 
-There are a few extra things we'll need to update compared to the simple example.
-
+There are a few extra things we'll need to update compared to the simple example. 
+                                                                                                                
 1. Updating the [lighthouse.json](lighthouse-relative.json) file to flag it's use of relative urls
      * `is_relative_url` is now `true`
      * Remove the domain from the URL. `"url" : "/",` would test the homepage for example.
 2. Updating the config to pass a base url to the lighthouse testing script
     * In the job(s) preceding the test you need to get a base url specific to your environment/project and [save it to a file](https://github.com/kanopi/lighthouse-circleci/blob/c6f6aaca986cbeae70834488a41788a41d684f93/.circleci/config.yml#L62) 
-3. Getting the base url in to the lighthouse test
+3. Getting the base url in to the Lighthouse test
     * We load the file from the other test can [get the URL in to a variable](https://github.com/kanopi/lighthouse-circleci/blob/c6f6aaca986cbeae70834488a41788a41d684f93/.circleci/config.yml#L90) that we can concat with the relative URL from the JSON file.
 4. Setting an environment URL for the analyzing script so the links in github comments work correctly
     * The analyzer script is configured to look for an environment variable called `LIGHTHOUSE_BASE_URL` and when that exists will prepend that to the testing URL for notifications in github.
