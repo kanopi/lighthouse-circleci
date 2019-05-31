@@ -1,0 +1,286 @@
+# https://circleci.com/docs/2.0/workflows/#using-workspaces-to-share-data-among-jobs
+defaults: &defaults
+  docker:
+    - image: quay.io/pantheon-public/build-tools-ci:4.x
+  working_directory: ~/example_drops_8_composer
+  environment:
+    #=========================================================================
+    # In addition to the environment variables defined in this file, also
+    # add the following variables in the Circle CI UI.
+    #
+    # See: https://circleci.com/docs/2.0/env-vars/
+    #
+    # TERMINUS_SITE:  Name of the Pantheon site to run tests on, e.g. my_site
+    # TERMINUS_TOKEN: The Pantheon machine token
+    # GITHUB_TOKEN:   The GitHub personal access token
+    # GIT_EMAIL:      The email address to use when making commits
+    #
+    # TEST_SITE_NAME: The name of the test site to provide when installing.
+    # ADMIN_PASSWORD: The admin password to use when installing.
+    # ADMIN_EMAIL:    The email address to give the admin when installing.
+    #=========================================================================
+    TZ: "/usr/share/zoneinfo/America/Los_Angeles"
+
+    # The variables below usually do not need to be modified.
+
+    #======================================================================================================================================
+    # Circle CI 2.0 does not yet expand environment variables so they have to be manually EXPORTed
+    # Once environment variables can be expanded the variables below can be uncommented and the EXPORTs in set-up-globals.sh can be removed
+    # See: https://discuss.circleci.com/t/unclear-how-to-work-with-user-variables-circleci-provided-env-variables/12810/11
+    # See: https://discuss.circleci.com/t/environment-variable-expansion-in-working-directory/11322
+    # See: https://discuss.circleci.com/t/circle-2-0-global-environment-variables/8681
+    #======================================================================================================================================
+
+    NOTIFY: 'scripts/github/add-commit-comment {project} {sha} "Created multidev environment [{site}#{env}]({dashboard-url})." {site-url}'
+    ADMIN_USERNAME: admin
+    # BUILD_TOOLS_VERSION: ^2.0.0-alpha4
+    TERM: dumb
+
+version: 2
+jobs:
+  # @todo: common initialization: 'composer install' for the site-under-test
+  build:
+    <<: *defaults
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - composer-cache
+            - terminus-install
+
+      - run:
+          # Set TERMINUS_ENV and related environment variables.
+          # https://github.com/pantheon-systems/docker-build-tools-ci/blob/1.x/scripts/set-environment
+          name: environment
+          command: /build-tools-ci/scripts/set-environment
+
+      - run:
+          name: run composer install to get the vendor directory
+          command: composer install
+
+      - save_cache:
+          key: composer-cache
+          paths:
+            - $HOME/.composer/cache
+
+      - save_cache:
+          key: terminus-install
+          paths:
+            - $(TERMINUS_PLUGINS_DIR:-~/.terminus/plugins)
+
+      - run:
+          name: lint php code for syntax errors
+          command: composer -n lint
+
+      - run:
+          name: check coding standards
+          command: composer -n code-sniff
+
+      - run:
+          name: run unit tests
+          command: composer -n unit-test
+
+  build_deploy_and_test:
+    <<: *defaults
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - composer-cache
+            - terminus-install
+
+      - run:
+          # Set TERMINUS_ENV and related environment variables.
+          # https://github.com/pantheon-systems/docker-build-tools-ci/blob/1.x/scripts/set-environment
+          name: dependencies
+          command: /build-tools-ci/scripts/set-environment
+
+      - run:
+          name: install dev dependencies, build assets, etc.
+          command: ./.circleci/scripts/pantheon/01-prepare
+
+      - run:
+          name: build assets
+          command: composer -n build-assets
+
+      - run:
+          name: prepare database for site-under test
+          command: ./.circleci/scripts/pantheon/02-init-site-under-test-clone-existing
+          # command: ./.circleci/scripts/pantheon/02-init-site-under-test-reinstall-new
+
+      - run:
+          name: run composer install again to get dev dependencies
+          command: composer install
+
+      - run:
+          name: run functional tests with Behat
+          command: ./tests/scripts/run-behat
+
+      - run:
+          name: post-test actions
+          command: ./.circleci/scripts/pantheon/03-post-test
+
+      - run:
+          name: handle merge to master (if needed)
+          command: ./.circleci/scripts/pantheon/04-merge-master
+
+      - run:
+          name: remove transient test fixtures
+          command: ./.circleci/scripts/pantheon/09-cleanup-fixtures
+
+      # We don't know the multidev URL for subsequent steps so dump it to a file.
+      # Remove trailing slash from multidev URL.
+      - run:
+          name: Get Multidev URL
+          command: |
+            LIGHTHOUSE_BASE_URL="$(terminus --print env:view $TERMINUS_SITE.$TERMINUS_ENV)"
+            LIGHTHOUSE_BASE_URL=${LIGHTHOUSE_BASE_URL%?};
+            echo $LIGHTHOUSE_BASE_URL > lighthouse_base_url
+
+      # Save the lighthouse file in the workspace to be used by other jobs.
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - lighthouse_base_url
+
+  # Perf tests
+  perfTestsHomepage:
+    # Number of parallel Lighthouse runs against this url. Why more than one?
+    # Some perf metrics vary across runs based on backend flakiness, etc, and
+    # this way we can extract a best score or median across runs.
+    parallelism: 3
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      - attach_workspace:
+          at: "."
+      - run:
+          name: Run lighthouse tests
+          # Load the url to test from the JSON file.
+          command: |
+            LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
+            TEST_URL="$(node -p 'require("./lighthouse-home.json").url')"
+            COMPLETE_URL="$LIGHTHOUSE_BASE_URL$TEST_URL"
+            lighthouse $COMPLETE_URL \
+              --port=9222 \
+              --chrome-flags=\"--headless\" \
+              --emulated-form-factor=mobile \
+              --output-path=/opt/reports/anonymous-"$(echo -n $CIRCLE_SHELL_ENV | md5sum | awk '{print $1}')" \
+              --output=json \
+              --output=html
+      # Save the reports just generated in a place where the _next job_ in the
+      # workflow can snag them all and do analysis on them.
+      - persist_to_workspace:
+          root: /opt
+          paths:
+            - reports
+
+  # Analyze reports
+  processResultsHomepage:
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      # Mount the workspace (which contains all our reports) into this
+      # container. The reports are subsequently available at ./reports/
+      - attach_workspace:
+          at: "."
+      # Store the html and json reports in S3 as long-term artifacts associated
+      # with this job. Then, we can easily send links to the html reports in the
+      # PR comment.
+      - store_artifacts:
+          path: reports
+          destination: reports
+      # Run the script to parse the scores.
+      - run:
+          shell: /bin/sh
+          name: Analyze scores for the tests
+          command: |
+            export GH_AUTH_TOKEN="$GITHUB_TOKEN"
+            export LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
+            /opt/ci-scripts/analyze_scores.js lighthouse-home.json reports
+
+
+
+  # Perf tests
+  perfTestsInteriorPage:
+    # Number of parallel Lighthouse runs against this url. Why more than one?
+    # Some perf metrics vary across runs based on backend flakiness, etc, and
+    # this way we can extract a best score or median across runs.
+    parallelism: 3
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      - attach_workspace:
+          at: "."
+      - run:
+          name: Run lighthouse tests
+          # Load the url to test from the JSON file.
+          command: |
+            LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
+            TEST_URL="$(node -p 'require("./lighthouse-interior.json").url')"
+            COMPLETE_URL="$LIGHTHOUSE_BASE_URL$TEST_URL"
+            lighthouse $COMPLETE_URL \
+              --port=9222 \
+              --chrome-flags=\"--headless\" \
+              --emulated-form-factor=mobile \
+              --output-path=/opt/reports/anonymous-"$(echo -n $CIRCLE_SHELL_ENV | md5sum | awk '{print $1}')" \
+              --output=json \
+              --output=html
+      # Save the reports just generated in a place where the _next job_ in the
+      # workflow can snag them all and do analysis on them.
+      - persist_to_workspace:
+          root: /opt
+          paths:
+            - reports
+
+  # Analyze reports
+  processResultsWhatPage:
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      # Mount the workspace (which contains all our reports) into this
+      # container. The reports are subsequently available at ./reports/
+      - attach_workspace:
+          at: "."
+      # Store the html and json reports in S3 as long-term artifacts associated
+      # with this job. Then, we can easily send links to the html reports in the
+      # PR comment.
+      - store_artifacts:
+          path: reports
+          destination: reports
+      # Run the script to parse the scores.
+      - run:
+          shell: /bin/sh
+          name: Analyze scores for the tests
+          command: |
+            export GH_AUTH_TOKEN="$GITHUB_TOKEN"
+            export LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
+            /opt/ci-scripts/analyze_scores.js lighthouse-interior.json reports
+
+
+workflows:
+  version: 2
+  build_and_test:
+    jobs:
+      # Install dev dependencies and do simple tests (sniff, unit tests, etc.)
+      - build
+      # Build deploy and test on target platform
+      - build_deploy_and_test
+      - perfTestsHomepage:
+          requires:
+            - build_deploy_and_test
+      - processResultsHomepage:
+          requires:
+            - perfTestsHomepage
+      - perfTestsInteriorPage:
+          requires:
+            - build_deploy_and_test
+      - processResultsWhatPage:
+          requires:
+            - perfTestsInteriorPage

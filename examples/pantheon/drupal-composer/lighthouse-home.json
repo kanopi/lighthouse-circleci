@@ -1,0 +1,10 @@
+{
+  "url" : "/",
+  "is_relative_url": true,
+  "requiredScores": {
+    "performance": 90,
+    "accessibility": 90,
+    "best-practices": 90,
+    "seo": 90
+  }
+}
