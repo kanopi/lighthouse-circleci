@@ -1,7 +1,7 @@
 version: 2
 jobs:
   # Perf tests
-  perfTestsURL1:
+  simpleTests:
     # Number of parallel Lighthouse runs against this url. Why more than one?
     # Some perf metrics vary across runs based on backend flakiness, etc, and 
     # this way we can extract a best score or median across runs.
@@ -30,7 +30,7 @@ jobs:
             - reports
 
   # Analyze all the reports for URL1
-  processResultsURL1:
+  processResultsSimpleTests:
     docker:
       - image: kanopi/ci:edge-lighthouse
     steps:
@@ -52,11 +52,96 @@ jobs:
           command: |
             /opt/ci-scripts/analyze_scores.js lighthouse.json reports
 
+  baseUrl:
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      - attach_workspace:
+          at: "."
+      - run:
+          # This is the simplest way to store variables between jobs.
+          name: Create file for storing lighthouse base url
+          command: |
+            echo 'https://developers.google.com' > lighthouse_base_url
+
+      # Save the lighthouse file in the workspace to be used by other jobs.
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - lighthouse_base_url
+
+  # Perf tests
+  relativeTests:
+    # Number of parallel Lighthouse runs against this url. Why more than one?
+    # Some perf metrics vary across runs based on backend flakiness, etc, and
+    # this way we can extract a best score or median across runs.
+    parallelism: 3
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      - attach_workspace:
+          at: "."
+      - run:
+          name: Run lighthouse tests
+          # Load the base_url and the url to test and put them together.
+          command: |
+            LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
+            TEST_URL="$(node -p 'require("./lighthouse-relative.json").url')"
+            COMPLETE_URL="$LIGHTHOUSE_BASE_URL$TEST_URL"
+            lighthouse $COMPLETE_URL \
+              --port=9222 \
+              --chrome-flags=\"--headless\" \
+              --emulated-form-factor=mobile \
+              --output-path=/opt/reports/anonymous-"$(echo -n $CIRCLE_SHELL_ENV | md5sum | awk '{print $1}')" \
+              --output=json \
+              --output=html
+      # Save the reports just generated in a place where the _next job_ in the
+      # workflow can snag them all and do analysis on them.
+      - persist_to_workspace:
+          root: /opt
+          paths:
+            - reports
+
+  # Analyze reports
+  processResultsRelativeTests:
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      # Mount the workspace (which contains all our reports) into this
+      # container. The reports are subsequently available at ./reports/
+      - attach_workspace:
+          at: "."
+      # Store the html and json reports in S3 as long-term artifacts associated
+      # with this job. Then, we can easily send links to the html reports in the
+      # PR comment.
+      - store_artifacts:
+          path: reports
+          destination: reports
+      # Run the script to parse the scores.
+      - run:
+          shell: /bin/sh
+          name: Analyze scores for the tests
+          command: |
+            export LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
+            /opt/ci-scripts/analyze_scores.js lighthouse-relative.json reports
+
 workflows:
   version: 2
-  lighthouseBenchmark:
+  simpleLighthouseBenchmark:
     jobs:
-      - perfTestsURL1
-      - processResultsURL1:
+      - simpleTests
+      - processResultsSimpleTests:
           requires:
-            - perfTestsURL1
+            - simpleTests
+  relativeLighthouseBenchmark:
+    jobs:
+      - baseUrl
+      - relativeTests:
+          requires:
+            - baseUrl
+      - processResultsRelativeTests:
+          requires:
+            - relativeTests
