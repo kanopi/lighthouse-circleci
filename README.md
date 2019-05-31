@@ -2,6 +2,14 @@
 
 Here is an example of how  you can integrate [CircleCI](https://circleci.com/) and [Google Lighthouse](https://github.com/GoogleChrome/lighthouse) as part of your development flow to get performance regression checks on each pull request.
 
+A pull request will get tested with Lighthouse with configurable per test limits for:
+* Performance
+* Accessibility
+* Best Practices
+* SEO
+
+The results of each test will be stored in the PR for later review if needed.
+
 A test will look like this in your PR
 
 ![Lighthouse test github comment](/docs/github-comment.png)
