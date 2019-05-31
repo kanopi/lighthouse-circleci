@@ -24,7 +24,33 @@ If you look at the [config.yml](.circleci/config.yml) in this repo you'll see it
 
 The second major part of this is the Docker image (`kanopi/ci:edge-lighthouse`).  This is the custom image we've built that has Lighthouse and the analyzer script baked in to it so this process is lightweight on the individual project side.
 
-## To do
+### Basic setup
+
+So in the most basic example you can simply:
+
+1. Setup the token and github checks on your repo.
+2. Copy the example part of config.yml for `simpleTests` and `processResultsSimpleTests` jobs
+3. Copy the example part of config.yml for `simpleLighthouseBenchmark` workflows
+3. Copy lighthouse.json file and adjust the URL to what you want to test.
+ 
+This will get you testing a specific URL on every PR.
+
+### Relative URLs
+
+In more complicated development flows you'll want to test against specific environments so you can't hard code an absolute URL in the json file.
+
+There are 3 things we'll need to update compared to the simple example.
+
+1. Updating the lighthouse.json file to flag it's use of relative urls; so `is_relative_url` is now `true`;
+2. Updating the config to pass a base url to the lighthouse testing script
+3. Setting an environment URL for the analyzing script so the links in github comments work correctly 
+
+
+The analyzer script is configured to look for an environment variable called `LIGHTHOUSE_BASE_URL` and when that exists will prepend that to the testing URL for notifications in github.
+
+
+
+
 
 **Add authenticated tests**
 

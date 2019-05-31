@@ -1,7 +1,7 @@
 version: 2
 jobs:
   # Perf tests
-  perfTestsURL1:
+  simpleTests:
     # Number of parallel Lighthouse runs against this url. Why more than one?
     # Some perf metrics vary across runs based on backend flakiness, etc, and 
     # this way we can extract a best score or median across runs.
@@ -30,7 +30,7 @@ jobs:
             - reports
 
   # Analyze all the reports for URL1
-  processResultsURL1:
+  processResultsSimpleTests:
     docker:
       - image: kanopi/ci:edge-lighthouse
     steps:
@@ -54,9 +54,15 @@ jobs:
 
 workflows:
   version: 2
-  lighthouseBenchmark:
+  simpleLighthouseBenchmark:
     jobs:
-      - perfTestsURL1
-      - processResultsURL1:
+      - simpleTests
+      - processResultsSimpleTests:
           requires:
-            - perfTestsURL1
+            - simpleTests
+  relativeLighthouseBenchmark:
+    jobs:
+      - relativeTests
+      - processResultsRelativeTests:
+          requires:
+            - relativeTests

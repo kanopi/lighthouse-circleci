@@ -1,5 +1,6 @@
 {
   "url" : "https://jimbir.ch/",
+  "is_relative_url": false,
   "requiredScores": {
     "performance": 90,
     "accessibility": 90,
