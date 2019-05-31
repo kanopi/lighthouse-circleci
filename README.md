@@ -68,7 +68,7 @@ There are a few extra things we'll need to update compared to the simple example
     
 ## Examples
 
-The `config.yml` in the `.circleci` folder is a good example.  We have folder of platform specific setups as well that we will be adding to over time.
+The `config.yml` in the `.circleci` folder is a good example.  We have folder of platform specific setups as well that we will be adding too over time.
 
 * [Pantheon composer builds](examples/pantheon/drupal-composer/README.md)
 
