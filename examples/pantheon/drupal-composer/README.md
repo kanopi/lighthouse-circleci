@@ -6,10 +6,11 @@ If your project has been built with Pantheons [composer/circleci starter build t
 
 If you generated your project and haven't touched your CircleCi `config.yml` since you can use the one in this folder.
 
-This version of the `config.yml` also maps the Github token created by the build tools generator to the one needed by the analyzer script.
+This version of the `config.yml` will setup two tests; one for the homepage and one for an interior page.  The interior page defaults to the user login page to keep it general but you can obviously adjust these.
+This also maps the Github token created by the build tools generator to the one needed by the analyzer script.
 
 **If you have made NO changes:**
-1. Copy the config.yml file in this folder over the one in your project repo.
+1. Copy the `config.yml` file in this folder over the one in your project repo.
 2. Copy the 2 json files in to the **root** of your project.
 3. Adjust the urls in the json files as desired.
 
