@@ -125,7 +125,7 @@ jobs:
           shell: /bin/sh
           name: Analyze scores for the tests
           command: |
-            LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
+            export LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
             /opt/ci-scripts/analyze_scores.js lighthouse-relative.json reports
 
 workflows:
