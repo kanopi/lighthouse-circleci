@@ -52,6 +52,25 @@ jobs:
           command: |
             /opt/ci-scripts/analyze_scores.js lighthouse.json reports
 
+  baseUrl:
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      - attach_workspace:
+          at: "."
+      - run:
+          # This is the simplest way to store variables between jobs.
+          name: Create file for storing lighthouse base url
+          command: |
+            echo 'https://developers.google.com' > lighthouse_base_url
+
+      # Save the lighthouse file in the workspace to be used by other jobs.
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - lighthouse_base_url
+
   # Perf tests
   relativeTests:
     # Number of parallel Lighthouse runs against this url. Why more than one?
@@ -66,7 +85,7 @@ jobs:
           at: "."
       - run:
           name: Run lighthouse tests
-          # Load the url to test from the JSON file.
+          # Load the base_url and the url to test and put them together.
           command: |
             LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
             TEST_URL="$(node -p 'require("./lighthouse-relative.json").url')"
@@ -106,7 +125,7 @@ jobs:
           shell: /bin/sh
           name: Analyze scores for the tests
           command: |
-            export LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
+            LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
             /opt/ci-scripts/analyze_scores.js lighthouse-relative.json reports
 
 workflows:
@@ -119,7 +138,10 @@ workflows:
             - simpleTests
   relativeLighthouseBenchmark:
     jobs:
-      - relativeTests
+      - baseUrl
+      - relativeTests:
+          requires:
+            - baseUrl
       - processResultsRelativeTests:
           requires:
             - relativeTests

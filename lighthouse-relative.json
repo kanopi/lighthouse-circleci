@@ -1,5 +1,5 @@
 {
-  "url" : "/",
+  "url" : "/web/tools/lighthouse/",
   "is_relative_url": true,
   "requiredScores": {
     "performance": 90,
