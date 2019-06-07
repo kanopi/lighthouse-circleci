@@ -14,7 +14,7 @@ jobs:
           name: Run lighthouse tests
           # Load the url to test from the JSON file.
           command: |
-            TEST_URL="$(node -p 'require("./lighthouse.json").url')"
+            TEST_URL="$(node -p 'require("./.circleci/lighthouse.json").url')"
             lighthouse $TEST_URL \
               --port=9222 \
               --chrome-flags=\"--headless\" \
@@ -50,7 +50,7 @@ jobs:
           shell: /bin/sh
           name: Analyze scores for the tests
           command: |
-            /opt/ci-scripts/analyze_scores.js lighthouse.json reports
+            /opt/ci-scripts/analyze_scores.js ./.circleci/lighthouse.json reports
 
   baseUrl:
     docker:
@@ -88,7 +88,7 @@ jobs:
           # Load the base_url and the url to test and put them together.
           command: |
             LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
-            TEST_URL="$(node -p 'require("./lighthouse-relative.json").url')"
+            TEST_URL="$(node -p 'require("./.circleci/lighthouse-relative.json").url')"
             COMPLETE_URL="$LIGHTHOUSE_BASE_URL$TEST_URL"
             lighthouse $COMPLETE_URL \
               --port=9222 \
@@ -126,7 +126,7 @@ jobs:
           name: Analyze scores for the tests
           command: |
             export LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
-            /opt/ci-scripts/analyze_scores.js lighthouse-relative.json reports
+            /opt/ci-scripts/analyze_scores.js ./.circleci/lighthouse-relative.json reports
 
 workflows:
   version: 2
