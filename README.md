@@ -13,7 +13,7 @@ The results of each test will be stored in the PR for later review if needed. A 
 
 **Thanks**
 
-A lot of this is built off of the work [Stuart Sandine](https://github.com/stuartsan) and the [blog post](https://stuartsandine.com/lighthouse-circle-ci/) he wrote. One of the things that I wanted to take further is make sure the process is more modular and can be dropped in to an existing flow without too much effort.  For example his analyze scores script is built in to the project specific repo but I've moved it out in to a custom docker image.       
+A lot of this is built off of the work from [Stuart Sandine](https://github.com/stuartsan) and the [blog post](https://stuartsandine.com/lighthouse-circle-ci/) he wrote. One of the things that we wanted to take further is make sure the process is more modular and can be dropped in to an existing flow without too much effort.  For example, the analyze scores script is built in to the project specific repo but we've moved it out in to a custom docker image.       
 
 Another thanks goes out to [Sean Dietrich](https://github.com/sean-e-dietrich) for getting me going on the Docker stuff and the tooling he's built in to the Kanopi [CI Project](https://github.com/kanopi/ci-tools).
 
@@ -24,8 +24,7 @@ Another thanks goes out to [Sean Dietrich](https://github.com/sean-e-dietrich) f
    * Variable should be named `GH_AUTH_TOKEN` in CircleCI.  
    * This lets [CircleCI Bot](https://www.npmjs.com/package/circle-github-bot) write the comments on the PRs
 * [Enable Github checks](https://circleci.com/docs/2.0/enable-checks/) integration for the repo
-* [lighthouse.json](lighthouse.json) file
-   * Should be located in the root of the project.
+* [lighthouse.json](.circleci/lighthouse.json) file
    * This is a json file used in CircleCI to know which URL to test and the minimum score to hit.
    * Technically this could be named anything but if you name your file this the config example should "just work".
 
@@ -42,7 +41,7 @@ So in the most basic example you can simply:
 1. Setup the token and github checks on your repo.
 2. Copy the example part of config.yml for `simpleTests` and `processResultsSimpleTests` jobs
 3. Copy the example part of config.yml for `simpleLighthouseBenchmark` workflows
-3. Copy lighthouse.json file and adjust the URL to what you want to test.
+3. Copy the `lighthouse.json` file(keeping it in the `.circleci` folder) and adjust the URL to what you want to test.
  
 This will get you testing a specific URL on every PR.
 
@@ -52,7 +51,7 @@ In more complicated development flows you'll want to test against specific envir
 
 There are a few extra things we'll need to update compared to the simple example. 
                                                                                                                 
-1. Updating the [lighthouse.json](lighthouse-relative.json) file to flag it's use of relative urls
+1. Updating the [lighthouse.json](.circleci/lighthouse-relative.json) file to flag it's use of relative urls
      * `is_relative_url` is now `true`
      * Remove the domain from the URL. `"url" : "/",` would test the homepage for example.
 2. Updating the config to pass a base url to the lighthouse testing script

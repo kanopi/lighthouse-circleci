@@ -11,7 +11,7 @@ This also maps the Github token created by the build tools generator to the one 
 
 **If you have made NO changes:**
 1. Copy the `config.yml` file in this folder over the one in your project repo.
-2. Copy the 2 json files in to the **root** of your project.
+2. Copy the 2 json files in to the `.circleci` folder of your project as well.
 3. Adjust the urls in the json files as desired.
 
 Commit and create a PR.  See your new tests in action. :rocket:
