@@ -7,7 +7,7 @@ jobs:
     # this way we can extract a best score or median across runs.
     parallelism: 3
     docker:
-      - image: kanopi/ci:edge-lighthouse
+      - image: kanopi/ci:edge-lighthouse_master
     steps:
       - checkout
       - run:
@@ -32,7 +32,7 @@ jobs:
   # Analyze all the reports for URL1
   processResultsSimpleTests:
     docker:
-      - image: kanopi/ci:edge-lighthouse
+      - image: kanopi/ci:edge-lighthouse_master
     steps:
       - checkout
       # Mount the workspace (which contains all our reports) into this
@@ -54,7 +54,7 @@ jobs:
 
   baseUrl:
     docker:
-      - image: kanopi/ci:edge-lighthouse
+      - image: kanopi/ci:edge-lighthouse_master
     steps:
       - checkout
       - attach_workspace:
@@ -78,7 +78,7 @@ jobs:
     # this way we can extract a best score or median across runs.
     parallelism: 3
     docker:
-      - image: kanopi/ci:edge-lighthouse
+      - image: kanopi/ci:edge-lighthouse_master
     steps:
       - checkout
       - attach_workspace:
@@ -107,7 +107,7 @@ jobs:
   # Analyze reports
   processResultsRelativeTests:
     docker:
-      - image: kanopi/ci:edge-lighthouse
+      - image: kanopi/ci:edge-lighthouse_master
     steps:
       - checkout
       # Mount the workspace (which contains all our reports) into this
