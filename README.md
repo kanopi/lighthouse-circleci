@@ -67,6 +67,7 @@ There are a few extra things we'll need to update compared to the simple example
 We have folder of platform specific setups as well that we will be adding too over time.
 
 * [Pantheon composer builds](examples/pantheon/drupal-composer/README.md)
+* [Pantheon Drops 7](examples/pantheon/drops-7/README.md)
 
 ## To do
     

@@ -1,0 +1,137 @@
+defaults: &defaults
+  docker:
+    - image: quay.io/pantheon-public/build-tools-ci:4.x
+  working_directory: ~/drops_7
+  environment:
+    TZ: "/usr/share/zoneinfo/America/Los_Angeles"
+    NOTIFY: './.circleci/scripts/github/add-commit-comment {project} {sha} "Created multidev environment [{env}]({site-url})." {site-url}'
+    ADMIN_USERNAME: admin
+    TERM: dumb
+
+version: 2
+jobs:
+  deploy:
+    <<: *defaults
+    steps:
+      - checkout
+
+      - restore_cache:
+          keys:
+            - terminus-install
+
+      - run:
+          # Set TERMINUS_ENV and related environment variables.
+          # https://github.com/pantheon-systems/docker-build-tools-ci/blob/1.x/scripts/set-environment
+          name: environment
+          command: /build-tools-ci/scripts/set-environment
+
+      - save_cache:
+          key: terminus-install
+          paths:
+            - $(TERMINUS_PLUGINS_DIR:-~/.terminus/plugins)
+
+      - run:
+          name: Set up environment
+          command: /build-tools-ci/scripts/set-environment
+
+      - run:
+          name: install dev dependencies, build assets, etc.
+          command: ./.circleci/scripts/pantheon/01-prepare
+
+      - run:
+          name: prepare database for site-under test
+          command: ./.circleci/scripts/pantheon/02-init-site-under-test-clone-existing
+
+      - run:
+          name: handle merge to master (if needed)
+          command: ./.circleci/scripts/pantheon/04-merge-master
+
+      - run:
+          name: remove transient test fixtures
+          command: ./.circleci/scripts/pantheon/09-cleanup-fixtures
+
+      # We don't know the multidev URL for subsequent steps so dump it to a file.
+      # Remove trailing slash from multidev URL.
+      - run:
+          name: Get Multidev URL
+          command: |
+            LIGHTHOUSE_BASE_URL="$(terminus --print env:view $TERMINUS_SITE.$TERMINUS_ENV)"
+            LIGHTHOUSE_BASE_URL=${LIGHTHOUSE_BASE_URL%?};
+            LIGHTHOUSE_BASE_URL=${LIGHTHOUSE_BASE_URL/http/https};
+            echo $LIGHTHOUSE_BASE_URL > lighthouse_base_url
+      # Save the lighthouse file in the workspace to be used by other jobs.
+      - persist_to_workspace:
+          root: ./
+          paths:
+            - lighthouse_base_url
+
+  # Perf tests
+  perfTestsHomepage:
+    # Number of parallel Lighthouse runs against this url. Why more than one?
+    # Some perf metrics vary across runs based on backend flakiness, etc, and
+    # this way we can extract a best score or median across runs.
+    parallelism: 3
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      - attach_workspace:
+          at: "."
+      - run:
+          name: Run lighthouse tests
+          # Load the url to test from the JSON file.
+          command: |
+            LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
+            TEST_URL="$(node -p 'require("./.circleci/lighthouse/lighthouse-home.json").url')"
+            COMPLETE_URL="$LIGHTHOUSE_BASE_URL$TEST_URL"
+            lighthouse $COMPLETE_URL \
+              --port=9222 \
+              --chrome-flags=\"--headless\" \
+              --emulated-form-factor=mobile \
+              --output-path=/opt/reports/anonymous-"$(echo -n $CIRCLE_SHELL_ENV | md5sum | awk '{print $1}')" \
+              --output=json \
+              --output=html
+      # Save the reports just generated in a place where the _next job_ in the
+      # workflow can snag them all and do analysis on them.
+      - persist_to_workspace:
+          root: /opt
+          paths:
+            - reports
+
+  # Analyze reports
+  processResultsHomepage:
+    docker:
+      - image: kanopi/ci:edge-lighthouse
+    steps:
+      - checkout
+      # Mount the workspace (which contains all our reports) into this
+      # container. The reports are subsequently available at ./reports/
+      - attach_workspace:
+          at: "."
+      # Store the html and json reports in S3 as long-term artifacts associated
+      # with this job. Then, we can easily send links to the html reports in the
+      # PR comment.
+      - store_artifacts:
+          path: reports
+          destination: reports
+      # Run the script to parse the scores.
+      - run:
+          shell: /bin/sh
+          name: Analyze scores for the tests
+          command: |
+            export GH_AUTH_TOKEN="$GITHUB_TOKEN"
+            export LIGHTHOUSE_BASE_URL="$(cat ./lighthouse_base_url)"
+            /opt/ci-scripts/analyze_scores.js ./.circleci/lighthouse/lighthouse-home.json reports
+
+
+workflows:
+  version: 2
+  deploy:
+    jobs:
+      - deploy
+      - perfTestsHomepage:
+          requires:
+            - deploy
+      - processResultsHomepage:
+          requires:
+            - perfTestsHomepage
