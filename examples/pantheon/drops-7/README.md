@@ -1,6 +1,6 @@
 # Working with an existing Pantheon Drupal 7 site
 
-You may have en existing Drupal 7 site on Pantheon and those don't come with the CircleCi setup out of the box like the Drupal 8 Composer projects.
+You may have an existing Drupal 7 site on Pantheon and those don't come with the CircleCi setup out of the box like the Drupal 8 Composer projects.
 
 Following these directions you can get the MultiDev deployment flow and Lighthouse audits 
 
